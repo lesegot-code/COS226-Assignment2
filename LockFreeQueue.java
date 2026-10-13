@@ -1,6 +1,6 @@
 import java.util.concurrent.atomic.AtomicReference;
 
-public class LockFreeQueue<T>{
+public class LockFreeQueue<T> implements ConcurrentQueue<T>{
     private static class Node<T>{
         public T value;
         public AtomicReference<Node<T>> next;
@@ -20,6 +20,7 @@ public class LockFreeQueue<T>{
         tail = new AtomicReference<>(sentinel);
     }
 
+    @Override
     public void enq(T item){
         Node<T> node = new Node<>(item);
         while(true){
@@ -40,6 +41,7 @@ public class LockFreeQueue<T>{
         }
     }
 
+    @Override
     public T deq(){
         while(true){
             Node<T> first = head.get();

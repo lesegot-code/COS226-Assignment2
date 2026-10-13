@@ -2,7 +2,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class BoundedQueue<T>{
+public class BoundedQueue<T> implements ConcurrentQueue<T>{
     private static class Node<T>{
         public T value;
         public Node<T> next;
@@ -33,6 +33,7 @@ public class BoundedQueue<T>{
         tail = head;
     }
 
+    @Override
     public void enq(T item){
         enqLock.lock();
         try{
@@ -63,6 +64,7 @@ public class BoundedQueue<T>{
         }
     }
 
+    @Override
     public T deq(){
         T result;
         deqLock.lock();
@@ -70,7 +72,7 @@ public class BoundedQueue<T>{
             while(size.get() == 0){
                 notEmptyCondition.await();
             }
-            
+
             result = head.next.value;
             head = head.next;
             
