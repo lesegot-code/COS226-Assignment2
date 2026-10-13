@@ -1,16 +1,23 @@
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main{
-    private static final int TOTAL_JOBS = 10000;
+    private static final int TOTAL_JOBS = 12000;
     private static final int PRODUCERS = 4;
     private static final int CONSUMERS = 4;
 
     public static void main(String[] args) throws InterruptedException{
-        System.out.println("=== Testing Bounded Queue ===");
-        //runTest(new BoundedQueue<>(100));
+        if (args.length > 0) {
+            System.out.println("=== Testing Bounded Queue ===");
+            runTest(new BoundedQueue<>(100));
+        }
 
         System.out.println("\n=== Testing Lock-Free Queue ===");
         runTest(new LockFreeQueue<>());
+
+        if (args.length == 0) {
+            System.out.println("=== Testing Bounded Queue ===");
+            runTest(new BoundedQueue<>(100));
+        }
     }
 
     // private static <Q> void runTest(Object queue) throws InterruptedException{
@@ -26,7 +33,7 @@ public class Main{
         long startTime = System.currentTimeMillis();
 
         //Start Producers
-        //System.out.println("\nStarting Producers...");
+        // System.out.println("\nStarting Producers...");
         for(int i = 0; i < PRODUCERS; i++){
             final int producerId = i;
             producers[i] = new Thread(() -> {
@@ -34,27 +41,26 @@ public class Main{
                     String job = "Job-" + producerId + "-" + j;
                     queue.enq(job);
 
-                    //System.out.println("Producer " + producerId + ": Produced: " + job);
+                    // System.out.println("Producer " + producerId + ": Produced: " + job);
                     producedCount.incrementAndGet();
                 }
             });
         }        
 
         //Start Consumers
-        //System.out.println("\nStarting Consumers...");
+        // System.out.println("\nStarting Consumers...");
         for(int i = 0; i < CONSUMERS; i++){
             consumers[i] = new Thread(() -> {
                 while(consumedCount.get() < TOTAL_JOBS){
-                    String job = null;
-                    job = queue.deq();
-                    
+                    String job = queue.deq();
+
                     if(job != null){
-                        //System.out.println("Consumer " + Thread.currentThread().getName() + ": Consumed: " + job);
+                        // System.out.println("Consumer " + Thread.currentThread().getName() + ": Consumed: " + job);
                         consumedCount.incrementAndGet();
                     }
                     else{
                         //Brief yield if lock-free queue returns null temporarily
-                        Thread.yield();
+                        // Thread.yield();
                     }
                 }
             });
@@ -73,14 +79,14 @@ public class Main{
         for(Thread p : producers){
             p.join();
         }
-        //System.out.println("\nProducers done\n");
+        // System.out.println("\nProducers done\n");
 
 
         //Wait for consumers to catch up
         for(Thread c : consumers){
             c.join();
         }
-        //System.out.println("\nConsumers done\n");
+        // System.out.println("\nConsumers done\n");
 
         long endTime = System.currentTimeMillis();
         long duration = endTime - startTime;

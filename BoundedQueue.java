@@ -19,15 +19,16 @@ public class BoundedQueue<T> implements ConcurrentQueue<T>{
     private Node<T> tail;
 
     private final ReentrantLock enqLock = new ReentrantLock();
-    private final Condition notFullCondition = enqLock.newCondition();
-
     private final ReentrantLock deqLock = new ReentrantLock();
+    // private final ReentrantLock lock = new ReentrantLock();
+
+    private final Condition notFullCondition = enqLock.newCondition();
     private final Condition notEmptyCondition = deqLock.newCondition();
 
     public BoundedQueue(int capacity){
         this.capacity = capacity;
         this.size = new AtomicInteger(0);
-        
+
         //Sentinel node initialization
         head = new Node<>(null);
         tail = head;
@@ -35,7 +36,9 @@ public class BoundedQueue<T> implements ConcurrentQueue<T>{
 
     @Override
     public void enq(T item){
+        boolean mustWake = false;
         enqLock.lock();
+
         try{
             while(size.get() == capacity){
                 notFullCondition.await();
@@ -44,16 +47,9 @@ public class BoundedQueue<T> implements ConcurrentQueue<T>{
             Node<T> node = new Node<>(item);
             tail.next = node;
             tail = node;
-            
-            int c = size.getAndIncrement();
-            if(c == 0){
-                deqLock.lock();
-                try{
-                    notEmptyCondition.signalAll();
-                }
-                finally{
-                    deqLock.unlock();
-                }
+
+            if (size.getAndIncrement() == 0) {
+                mustWake = true;
             }
         }
         catch(InterruptedException e){
@@ -62,38 +58,67 @@ public class BoundedQueue<T> implements ConcurrentQueue<T>{
         finally{
             enqLock.unlock();
         }
+
+        if (mustWake) {
+            deqLock.lock();
+
+            try {
+                notEmptyCondition.signalAll();
+            } finally {
+                deqLock.unlock();
+            }
+        }
     }
 
     @Override
     public T deq(){
-        T result;
+        boolean mustWake = false;
+        T result = null;
         deqLock.lock();
+
         try{
             while(size.get() == 0){
-                notEmptyCondition.await();
+                notEmptyCondition.await(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+                if (size.get() == 0) {
+                    return null;
+                }
+
+                /*
+                    not all waiting consumer threads are always woken up, so some get stuck in the await()
+
+                */
+
+                // notEmptyCondition.await();
             }
 
             result = head.next.value;
             head = head.next;
-            
-            int c = size.getAndDecrement();
-            if(c == capacity){
-                enqLock.lock();
-                try{
-                    notFullCondition.signalAll();
-                }
-                finally{
-                    enqLock.unlock();
-                }
+
+            if (size.getAndDecrement() == capacity) {
+                mustWake = true;
             }
-            return result;
+
+            // return result;
         }
         catch(InterruptedException e){
             Thread.currentThread().interrupt();
-            return null;
+            // return null;
         }
         finally{
             deqLock.unlock();
         }
+
+        if (mustWake) {
+            enqLock.lock();
+            try {
+                notFullCondition.signalAll();
+            }
+            finally {
+                enqLock.unlock();
+            }
+        }
+
+        return result;
     }
 }
