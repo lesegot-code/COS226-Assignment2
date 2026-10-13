@@ -1,6 +1,5 @@
 build:
 	javac *.java
 
-run:
-	java Main
+run: build
 	java Main 1
