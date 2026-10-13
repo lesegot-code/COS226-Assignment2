@@ -1,5 +1,5 @@
 build:
-	javac *.java
+	javac --release 8 *.java
 
 run: build
-	java Main 1
+	java -cp . Main 1
